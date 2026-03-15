@@ -170,19 +170,62 @@ function ExerciseBuilder({ exercises, onChange, accentColor, sessions }) {
   );
 }
 
-// ─── Repeat section ──────────────────────────────────────────────
+// ─── Repeat Picker (Outlook-style) ──────────────────────────────
+// repeat object: { freq: "none"|"weekly"|"biweekly", endType: "forever"|"date"|"count", endDate: "YYYY-MM-DD", endCount: 10 }
+const defaultRepeat = () => ({freq:"none", endType:"forever", endDate:"", endCount:"10"});
+const repeatLabel = (r) => {
+  if(!r||r.freq==="none") return "Einmalig";
+  const base = r.freq==="weekly"?"Wöchentlich":"Alle 2 Wochen";
+  if(r.endType==="date"&&r.endDate) return `${base} bis ${new Date(r.endDate+"T12:00").toLocaleDateString("de-DE",{day:"2-digit",month:"short",year:"numeric"})}`;
+  if(r.endType==="count"&&r.endCount) return `${base} · ${r.endCount}×`;
+  return `${base} · unbegrenzt`;
+};
+
 function RepeatPicker({value, onChange, date}) {
+  const r = value && typeof value==="object" ? value : defaultRepeat();
+  const set = (k,v) => onChange({...r,[k]:v});
+  const wday = date ? WDAYS[(new Date(date+"T12:00").getDay()+6)%7] : "";
+
   return (
-    <div style={{display:"flex",flexDirection:"column",gap:8,background:C.bg,borderRadius:12,padding:12}}>
-      {[["none","Einmalig"],["weekly","Jede Woche"],["biweekly","Alle 2 Wochen"]].map(([v,l])=>(
-        <button key={v} onClick={()=>onChange(v)} style={{display:"flex",alignItems:"center",gap:10,background:value===v?C.accL:"transparent",border:`1.5px solid ${value===v?C.acc:"transparent"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
-          <span style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${value===v?C.acc:C.border}`,background:value===v?C.acc:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-            {value===v&&<span style={{width:8,height:8,borderRadius:"50%",background:"#fff",display:"block"}}/>}
+    <div style={{background:C.bg,borderRadius:12,padding:12,display:"flex",flexDirection:"column",gap:8}}>
+      {/* Frequency */}
+      {[["none","Einmalig","Kein Wiederholungstermin"],["weekly","Wöchentlich",`Jeden ${wday}`],["biweekly","Alle 2 Wochen",`Jeden 2. ${wday}`]].map(([v,l,sub])=>(
+        <button key={v} onClick={()=>set("freq",v)} style={{display:"flex",alignItems:"center",gap:10,background:r.freq===v?C.accL:"transparent",border:`1.5px solid ${r.freq===v?C.acc:"transparent"}`,borderRadius:10,padding:"10px 12px",cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+          <span style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${r.freq===v?C.acc:C.border}`,background:r.freq===v?C.acc:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            {r.freq===v&&<span style={{width:8,height:8,borderRadius:"50%",background:"#fff",display:"block"}}/>}
           </span>
-          <span style={{fontSize:14,fontWeight:value===v?700:500,color:value===v?C.acc:C.text}}>{l}</span>
-          {v!=="none"&&value===v&&date&&<span style={{marginLeft:"auto",fontSize:12,color:C.acc,fontWeight:600}}>jeden {WDAYS[(new Date(date+"T12:00").getDay()+6)%7]}</span>}
+          <div>
+            <div style={{fontSize:14,fontWeight:r.freq===v?700:500,color:r.freq===v?C.acc:C.text}}>{l}</div>
+            <div style={{fontSize:11,color:C.light}}>{sub}</div>
+          </div>
         </button>
       ))}
+
+      {/* End condition – only show when repeating */}
+      {r.freq!=="none"&&(
+        <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:10,padding:12,marginTop:2}}>
+          <div style={{fontSize:11,fontWeight:700,color:C.sub,textTransform:"uppercase",letterSpacing:".07em",marginBottom:8}}>Serie endet</div>
+          {[["forever","Niemals (unbegrenzt)"],["date","An einem bestimmten Datum"],["count","Nach einer Anzahl von Terminen"]].map(([v,l])=>(
+            <button key={v} onClick={()=>set("endType",v)} style={{display:"flex",alignItems:"center",gap:8,background:"transparent",border:"none",padding:"7px 0",cursor:"pointer",fontFamily:"inherit",width:"100%",textAlign:"left"}}>
+              <span style={{width:16,height:16,borderRadius:"50%",border:`2px solid ${r.endType===v?C.acc:C.border}`,background:r.endType===v?C.acc:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {r.endType===v&&<span style={{width:6,height:6,borderRadius:"50%",background:"#fff",display:"block"}}/>}
+              </span>
+              <span style={{fontSize:13,fontWeight:r.endType===v?600:400,color:r.endType===v?C.acc:C.text}}>{l}</span>
+            </button>
+          ))}
+          {r.endType==="date"&&(
+            <input type="date" value={r.endDate} min={date||todayISO()} onChange={e=>set("endDate",e.target.value)}
+              style={{...inp({fontSize:14,marginTop:6})}}/>
+          )}
+          {r.endType==="count"&&(
+            <div style={{display:"flex",alignItems:"center",gap:8,marginTop:6}}>
+              <input type="number" min="1" max="104" value={r.endCount} onChange={e=>set("endCount",e.target.value)}
+                style={{...inp({width:80,textAlign:"center",fontSize:16,fontWeight:700,padding:"8px"})}}/>
+              <span style={{fontSize:13,color:C.sub}}>Wiederholungen</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -193,7 +236,7 @@ function GymForm({initial, mode, onSave, onCancel, sessions, workoutTemplates, o
     id: initial.id||uid(), type:"gym",
     date: initial.date||todayISO(), time: initial.time||"",
     label: initial.label||"", exercises: initial.exercises?.map(e=>({...e,id:e.id||uid(),sets:e.sets.map(s=>({...s}))||[]})) || [],
-    repeat: initial.repeat||"none",
+    repeat: initial.repeat&&typeof initial.repeat==="object"?initial.repeat:defaultRepeat(),
   }));
   const u = (k,v) => setForm(f=>({...f,[k]:v}));
   const valid = form.label && form.exercises.length>0;
@@ -281,7 +324,7 @@ function CardioForm({initial, mode, onSave, onCancel}) {
     minutes: initial.minutes||"",
     km: initial.km||"",
     note: initial.note||"",
-    repeat: initial.repeat||"none",
+    repeat: initial.repeat&&typeof initial.repeat==="object"?initial.repeat:defaultRepeat(),
   }));
   const u = (k,v) => setForm(f=>({...f,[k]:v}));
   const sport = cardioInfo(form.sport);
@@ -382,7 +425,7 @@ function PlanRow({plan, onStart, onEdit, onDelete, onMove}) {
             {plan.time&&<span style={{display:"flex",alignItems:"center",gap:3,fontSize:12,color:C.sub}}><IcoClock/> {plan.time} Uhr</span>}
             {plan.minutes&&<span style={{fontSize:12,color:C.sub}}>{plan.minutes} min</span>}
             {isGym&&plan.exercises?.length>0&&<span style={{fontSize:12,color:C.sub}}>{plan.exercises.length} Übg. · {totalSets} Sets</span>}
-            {plan.repeat!=="none"&&<span style={{display:"flex",alignItems:"center",gap:3,fontSize:11,background:C.accL,color:C.acc,borderRadius:6,padding:"2px 7px",fontWeight:600}}><IcoRepeat/> {plan.repeat==="weekly"?"Wöchentlich":"2-wöchentlich"}</span>}
+            {plan.repeat&&plan.repeat.freq&&plan.repeat.freq!=="none"&&<span style={{display:"flex",alignItems:"center",gap:3,fontSize:11,background:C.accL,color:C.acc,borderRadius:6,padding:"2px 7px",fontWeight:600}}><IcoRepeat/> {repeatLabel(plan.repeat)}</span>}
             {overdue&&<span style={{fontSize:11,background:C.redL,color:C.red,borderRadius:6,padding:"2px 7px",fontWeight:700}}>Überfällig</span>}
           </div>
         </div>
@@ -593,20 +636,26 @@ export default function App() {
   useEffect(()=>{setData(load());setLoaded(true);},[]);
   const persist = useCallback((next)=>{setData(next);save(next);},[]);
 
-  // Expand recurring plans
+  // Expand recurring plans – respects endDate / endCount
   const allPlans = (() => {
     const result = [];
     const future = new Date(); future.setDate(future.getDate()+60);
     const futureISO = future.toISOString().slice(0,10);
     data.plans.forEach(p=>{
       result.push(p);
-      if(p.repeat==="weekly"||p.repeat==="biweekly"){
-        const step=p.repeat==="weekly"?7:14;
-        let dt=new Date(p.date+"T12:00");
-        for(let i=0;i<20;i++){
+      const r = p.repeat && typeof p.repeat==="object" ? p.repeat : {freq: p.repeat||"none"};
+      if(r.freq==="weekly"||r.freq==="biweekly"){
+        const step = r.freq==="weekly"?7:14;
+        let dt = new Date(p.date+"T12:00");
+        let count = 0;
+        const maxCount = r.endType==="count" ? parseInt(r.endCount||10) : 999;
+        const maxDate = r.endType==="date"&&r.endDate ? r.endDate : futureISO;
+        for(let i=0;i<52;i++){
           dt.setDate(dt.getDate()+step);
-          const iso=dt.toISOString().slice(0,10);
-          if(iso>futureISO) break;
+          const iso = dt.toISOString().slice(0,10);
+          if(iso>futureISO||iso>maxDate) break;
+          count++;
+          if(count>maxCount) break;
           if(!data.plans.find(b=>b.date===iso&&b.type===p.type&&b.id!==p.id)){
             result.push({...p,id:p.id+"_"+iso,date:iso,_virtual:true,_parentId:p.id});
           }
@@ -770,18 +819,21 @@ export default function App() {
                 const sess=sessionsByDate[ds]||[];
                 const plans=plansByDate[ds]||[];
                 const isToday=ds===t;
+                // Done = actual logged sessions
                 const gymDone=sess.some(s=>s.type==="gym");
                 const cardioDone=sess.some(s=>s.type==="cardio");
-                const gymPlan=plans.some(p=>p.type==="gym");
-                const cardioPlan=plans.some(p=>p.type==="cardio");
+                // Planned = only show dashed if NOT already done that day
+                const gymPlanned=!gymDone&&plans.some(p=>p.type==="gym");
+                const cardioPlanned=!cardioDone&&plans.some(p=>p.type==="cardio");
+                const hasAnything=gymDone||cardioDone||gymPlanned||cardioPlanned;
                 return (
                   <div key={i} onClick={()=>setDayModal(ds)} style={{background:isToday?C.accL:C.surface,border:`${isToday?2:1}px solid ${isToday?C.acc:C.border}`,borderRadius:10,padding:"6px 5px",minHeight:52,cursor:"pointer",display:"flex",flexDirection:"column",gap:3}}>
                     <span style={{fontSize:12,fontWeight:isToday?800:500,color:isToday?C.acc:C.text}}>{day}</span>
                     <div style={{display:"flex",flexWrap:"wrap",gap:2}}>
                       {gymDone&&<Dot color={C.gym}/>}
                       {cardioDone&&<Dot color={C.cardio}/>}
-                      {!gymDone&&gymPlan&&<Dot color={C.gym} dashed/>}
-                      {!cardioDone&&cardioPlan&&<Dot color={C.cardio} dashed/>}
+                      {gymPlanned&&<Dot color={C.gym} dashed/>}
+                      {cardioPlanned&&<Dot color={C.cardio} dashed/>}
                     </div>
                   </div>
                 );
@@ -846,7 +898,7 @@ export default function App() {
           sessions={sessionsByDate[dayModal]||[]}
           plans={plansByDate[dayModal]||[]}
           onClose={()=>setDayModal(null)}
-          onAddPlan={(type)=>{setDayModal(null);setScreen({type:"plan",form:{id:uid(),type,date:dayModal,exercises:[],repeat:"none"}});}}
+          onAddPlan={(type)=>{setDayModal(null);setScreen({type:"plan",form:{id:uid(),type,date:dayModal,exercises:[],repeat:defaultRepeat()}});}}
           onEditPlan={(p)=>{setDayModal(null);setScreen({type:"plan",form:getRealPlan(p)});}}
           onDeletePlan={deletePlan}
           onStartPlan={startPlan}
