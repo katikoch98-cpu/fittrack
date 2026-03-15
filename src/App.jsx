@@ -473,7 +473,6 @@ function SessionRow({session,expanded,onToggle,onDelete}) {
         <div style={{borderTop:`1px solid ${C.border}`,marginTop:12,paddingTop:12}}>
           {isGym?(
             <>
-              {session.duration>0&&<div style={{background:C.greenL,borderRadius:8,padding:"6px 12px",marginBottom:10,fontSize:12,color:C.green,fontWeight:600}}>⏱ Gesamtzeit: {fmtTimer(session.duration)}</div>}
               {session.exercises?.map(ex=>(
                 <div key={ex.id} style={{marginBottom:10}}>
                   <div style={{fontSize:13,fontWeight:700,marginBottom:6}}>{ex.name}</div>
@@ -482,6 +481,12 @@ function SessionRow({session,expanded,onToggle,onDelete}) {
                   </div>
                 </div>
               ))}
+              {session.duration>0&&(
+                <div style={{background:C.greenL,border:`1px solid ${C.green}33`,borderRadius:10,padding:"10px 12px",marginTop:4,marginBottom:10}}>
+                  <div style={{fontSize:10,color:C.green,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",marginBottom:3}}>⏱ Workout-Dauer</div>
+                  <div style={{fontSize:20,fontWeight:800,color:C.green,fontVariantNumeric:"tabular-nums"}}>{fmtTimer(session.duration)}</div>
+                </div>
+              )}
             </>
           ):(
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
@@ -808,15 +813,15 @@ export default function App() {
                 const isToday=ds===t;
                 const isFuture=ds>t;
                 const isPast=ds<t;
-                // Erledigt: nur vergangene oder heutige sessions
-                const gymDone=!isFuture&&sess.some(s=>s.type==="gym");
-                const cardioDone=!isFuture&&sess.some(s=>s.type==="cardio");
-                // Geplant: zeige gestrichelt wenn plan existiert UND noch nicht erledigt
+                // Ausgefüllt = nur wenn wirklich eine Session eingetragen wurde (nicht nur geplant)
+                const gymDone=sess.some(s=>s.type==="gym");
+                const cardioDone=sess.some(s=>s.type==="cardio");
+                // Gestrichelt = Plan existiert UND noch keine Session eingetragen
                 const gymPlanned=!gymDone&&plans.some(p=>p.type==="gym");
                 const cardioPlanned=!cardioDone&&plans.some(p=>p.type==="cardio");
                 return (
                   <div key={i} onClick={()=>setDayModal(ds)}
-                    style={{background:isToday?C.accL:C.surface,border:`${isToday?2:1}px solid ${isToday?C.acc:C.border}`,borderRadius:10,padding:"6px 5px",minHeight:52,cursor:"pointer",display:"flex",flexDirection:"column",gap:3,opacity:isPast&&!gymDone&&!cardioDone&&!gymPlanned&&!cardioPlanned?.6:1}}>
+                    style={{background:isToday?C.accL:C.surface,border:`${isToday?2:1}px solid ${isToday?C.acc:C.border}`,borderRadius:10,padding:"6px 5px",minHeight:52,cursor:"pointer",display:"flex",flexDirection:"column",gap:3,opacity:(isPast&&!gymDone&&!cardioDone&&!gymPlanned&&!cardioPlanned)?0.5:1}}>
                     <span style={{fontSize:12,fontWeight:isToday?800:500,color:isToday?C.acc:C.text}}>{day}</span>
                     <div style={{display:"flex",flexWrap:"wrap",gap:2}}>
                       {gymDone&&<Dot color={C.gym}/>}
